@@ -2,7 +2,14 @@
 
 此维护分支基于 Zhalslar/astrbot_plugin_parser v1.6.1，保留原 MIT 许可证、版权声明和项目来源；原项目又参考了 nonebot-plugin-parser，原 README 的致谢继续保留。
 
-本地分支 `upstream-v1.6.1` 来自 2026-10-31 校验过的完整生产源码快照。它不是完整上游 Git 历史；当前无法从上游 Git 地址取回历史。维护分支为 `codex/prts-maintenance`。GitHub 目标账号是 `Dr-Priestess`，远程 fork 创建完成后再设置 `origin` 和 `metadata.yaml` 的 `repo`。
+代码基线来自 2026-10-31 校验过的完整生产源码快照，不包含完整上游 Git 历史。
+
+维护仓库：https://github.com/Dr-Priestess/astrbot_plugin_parser 。`main` 为使用版本，开发分支为 `codex/prts-maintenance`。上游仓库当前不可访问，因此此仓库按独立维护库发布，保留来源和原许可证。
+
+## v1.6.1+prts.2
+
+- 将插件更新地址切换到 Dr-Priestess 的维护仓库。
+- 沿用 prts.1 已验证的解析、卡片、emoji 和缓存权限修复。
 
 ## v1.6.1+prts.1
 
@@ -19,6 +26,6 @@
 
 ## 更新方式
 
-使用维护分支的发布包进行更新。当前 `metadata.yaml` 的 `repo` 留空，防止插件更新入口把维护补丁重新覆盖为原版；远程库可用后填入实际维护库地址。
+AstrBot 的插件更新入口使用 `metadata.yaml` 中的维护仓库地址。也可以使用维护仓库的源码 ZIP 或本地生成的发布包进行更新。
 
 后续先在单独分支合入上游变更，运行回归测试及实际出图检查，再更新维护分支并发布包。需要关注的回归包括纯文字、图文、视频、元数据不可用、emoji 组合、合并转发及缓存清理后的文件可读性。

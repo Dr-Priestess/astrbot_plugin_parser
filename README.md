@@ -7,6 +7,8 @@
 
 > PRTS 维护版，基于上游 v1.6.1。补全推特作者和完整文案，修复 emoji 图片地址、组合表情换行、纯文字卡片重复发送及缓存 ACL 丢失。维护说明见 [MAINTENANCE.md](MAINTENANCE.md)。
 
+维护仓库：[Dr-Priestess/astrbot_plugin_parser](https://github.com/Dr-Priestess/astrbot_plugin_parser)。
+
 _✨ 链接解析器 ✨_  
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
