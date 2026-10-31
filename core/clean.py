@@ -38,12 +38,20 @@ class CacheCleaner:
             logger.error(f"[{self.JOBNAME}] Cron 格式错误：{e}")
 
     async def _clean_plugin_cache(self) -> None:
-        """删除并重建缓存目录"""
+        """清理缓存内容，保留缓存根目录及其媒体读取 ACL。"""
         loop = asyncio.get_running_loop()
-        try:
-            await loop.run_in_executor(None, shutil.rmtree, self.cfg.cache_dir)
+
+        def clear_contents():
             self.cfg.cache_dir.mkdir(parents=True, exist_ok=True)
-            logger.info("Cache directory cleaned and recreated.")
+            for child in self.cfg.cache_dir.iterdir():
+                if child.is_dir() and not child.is_symlink():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink(missing_ok=True)
+
+        try:
+            await loop.run_in_executor(None, clear_contents)
+            logger.info("Cache contents cleaned; root directory and ACL preserved.")
         except Exception:
             logger.exception("Error while cleaning cache directory.")
 

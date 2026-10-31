@@ -8,14 +8,15 @@ from pathlib import Path
 from typing import ClassVar, ParamSpec, TypeVar
 
 import aiofiles
-from apilmoji import Apilmoji, EmojiCDNSource
-from apilmoji.core import get_font_height
+from apilmoji import Apilmoji
+from apilmoji.core import NodeType, get_font_height, parse_lines
 from PIL import Image, ImageDraw, ImageFont
 
 from astrbot.api import logger
 
 from .config import PluginConfig
 from .data import GraphicsContent, ParseResult
+from .emoji_source import StaticEmojiSource
 
 # 定义类型变量
 P = ParamSpec("P")
@@ -308,10 +309,11 @@ class Renderer:
 
     def __init__(self, config: PluginConfig):
         self.cfg = config
-        self.EMOJI_SOURCE = EmojiCDNSource(
+        self.EMOJI_SOURCE = StaticEmojiSource(
             base_url=self.cfg.emoji_cdn,
             style=self.cfg.emoji_style,
             cache_dir=self.cfg.cache_dir / self._EMOJIS,
+            proxy=getattr(self.cfg, "proxy", None),
         )
         """Emoji Source"""
 
@@ -1350,23 +1352,25 @@ class Renderer:
 
             current_line = ""
             current_line_width = 0
-            remaining_text = paragraph
+            units = (
+                (unit, node.type is NodeType.EMOJI)
+                for nodes in parse_lines([paragraph])
+                for node in nodes
+                for unit in ([node.content] if node.type is NodeType.EMOJI else node.content)
+            )
 
-            while remaining_text:
-                next_char = remaining_text[0]
-                char_width = font_info.get_char_width_fast(next_char)
+            for next_char, is_emoji in units:
+                char_width = font_info.font.size if is_emoji else font_info.get_char_width_fast(next_char)
                 # 如果当前行为空，直接添加字符
                 if not current_line:
                     current_line = next_char
                     current_line_width = char_width
-                    remaining_text = remaining_text[1:]
                     continue
 
                 # 如果是标点符号，直接添加到当前行（标点符号不应该单独成行）
                 if is_punctuation(next_char):
                     current_line += next_char
                     current_line_width += char_width
-                    remaining_text = remaining_text[1:]
                     continue
 
                 # 测试添加下一个字符后的宽度
@@ -1376,13 +1380,11 @@ class Renderer:
                     # 宽度合适，继续添加
                     current_line += next_char
                     current_line_width = test_width
-                    remaining_text = remaining_text[1:]
                 else:
                     # 宽度超限，需要断行
                     lines.append(current_line)
                     current_line = next_char
                     current_line_width = char_width
-                    remaining_text = remaining_text[1:]
 
             # 保存最后一行
             if current_line:
