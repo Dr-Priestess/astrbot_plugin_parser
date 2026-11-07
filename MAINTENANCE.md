@@ -6,6 +6,12 @@
 
 维护仓库：https://github.com/Dr-Priestess/astrbot_plugin_parser 。`main` 为使用版本，开发分支为 `codex/prts-maintenance`。上游仓库当前不可访问，因此此仓库按独立维护库发布，保留来源和原许可证。
 
+## v1.6.1+prts.3
+
+- 抖音 CDN 图片链接的签名依赖原始编码。保留 `douyinpic.com` 及其子域、带 `x-signature` 的已编码 URL，避免 aiohttp 自动重写后返回 403。
+- 不重建查询参数，不向 CDN 增加 Cookie；保留原缓存文件名、重试次数和普通 URL 的编码行为。
+- 真实本地 HTTP 服务验证请求字节与缓存复用，并覆盖普通 Unicode 路径、未签名 URL 和相似域名。
+
 ## v1.6.1+prts.2
 
 - 将插件更新地址切换到 Dr-Priestess 的维护仓库。

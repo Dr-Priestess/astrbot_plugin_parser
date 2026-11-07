@@ -9,6 +9,7 @@ import yt_dlp
 from aiohttp import ClientError, ClientSession, ClientTimeout
 from msgspec import Struct, convert
 from tqdm.asyncio import tqdm
+from yarl import URL
 
 from astrbot.api import logger
 
@@ -80,6 +81,20 @@ class Downloader:
         """关闭网络客户端"""
         await self.client.close()
 
+    @staticmethod
+    def _request_url(url: str) -> str | URL:
+        """Keep Douyin's already-encoded image signatures byte-for-byte."""
+        parsed = URL(url)
+        host = parsed.host or ""
+        if (
+            (host == "douyinpic.com" or host.endswith(".douyinpic.com"))
+            and "x-signature" in parsed.query
+            and url.isascii()
+            and not any(char.isspace() for char in url)
+        ):
+            return URL(url, encoded=True)
+        return url
+
     @auto_task
     async def streamd(
         self,
@@ -97,11 +112,12 @@ class Downloader:
         if file_path.exists():
             return file_path
         headers = headers or self.default_headers
+        request_url = self._request_url(url)
         retries = self.cfg.download_retry_times
         for attempt in range(retries + 1):
             try:
                 async with self.client.get(
-                    url, headers=headers, allow_redirects=True, proxy=proxy
+                    request_url, headers=headers, allow_redirects=True, proxy=proxy
                 ) as response:
                     if response.status >= 400:
                         raise ClientError(f"HTTP {response.status} {response.reason}")
