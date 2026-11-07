@@ -4,5 +4,5 @@ desc: 高性能低耦合的万能链接解析器。支持的类型：视频、�
 help: 略
 version: v1.6.1+prts.4
 author: Zhalslar / PRTS
-repo: https://github.com/Dr-Priestess/astrbot_plugin_parser
+repo: https://github.com/Dr-Priestess/astrbot_plugin_parser/tree/codex/prts
 

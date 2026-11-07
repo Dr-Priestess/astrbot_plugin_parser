@@ -6,14 +6,14 @@
 
 维护仓库：https://github.com/Dr-Priestess/astrbot_plugin_parser 。`main` 维护通用解析和发送修复，`codex/prts` 是小普使用的长期分支，包含通用功能以及专属视觉和署名；`codex/prts-maintenance` 是早期维护分支。上游仓库当前不可访问，此仓库保留来源和原许可证。
 
-本分支提供通用功能，`metadata.yaml.repo` 指向默认分支。小普应安装或更新 `codex/prts` 分支。通用修复先进入 `main`，再合入 `codex/prts`；专属视觉不反向合入 `main`。
+本分支的 `metadata.yaml.repo` 指向 `/tree/codex/prts`；AstrBot 会按指定分支下载，更新后保留小普主题。通用修复先进入 `main`，再合入 `codex/prts`；专属视觉不反向合入 `main`。
 
 ## v1.6.1+prts.4
 
 - 新增 `text_forward_threshold`，默认 500，超过才折叠，设为 0 关闭。独立视频组保持原分组；不截断聊天记录正文，不因渲染失败回退成长消息。
 - 小黑盒原有 `headers.cookie` 与 curl_cffi `cookies` 参数组合实际会发送两条 Cookie 请求头。现在每次从配置构建一条完整请求头，同时限定授权域；不向 CDN 或设备信息服务发送登录 Cookie。
 - `show_captcha` 仍表示平台要求用户验证，修复不承诺绕过或自动解决平台验证。网页验证、HTTP 401/403 和 429 分别提示。
-- 通用分支保留原卡片样式；头像、封面和个别图集图片失败时继续渲染其他内容。小普主题、完整 Noto Sans SC 字体及对应 OFL 声明只在 `codex/prts` 分支分发。
+- 内容卡沿用关系卡的颜色、完整 Noto Sans SC、暖白面板与边框星轨。字体与 OFL 声明位于 `core/resources/prts`，无需安装关系插件；未增加浏览器依赖。
 - 发送、Cookie 与重定向回归使用真实 AstrBot 组件和 curl_cffi、本地 HTTP 服务；QQ 发送隔离。实际生产检查仅请求公开帖子元数据，测试与预览不修改生产插件或配置。
 
 ## v1.6.1+prts.3

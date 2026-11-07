@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 from astrbot.api import logger
 
 from .config import PluginConfig
+from .card_theme import FONT_PATH, frame_card
 from .data import GraphicsContent, ParseResult
 from .emoji_source import StaticEmojiSource
 
@@ -109,9 +110,9 @@ class FontSet:
 
     _FONT_SIZES = (
         ("name", 28),
-        ("title", 30),
-        ("text", 24),
-        ("extra", 24),
+        ("title", 34),
+        ("text", 26),
+        ("extra", 20),
         ("indicator", 60),
     )
     """字体大小"""
@@ -127,6 +128,7 @@ class FontSet:
         font_infos: dict[str, FontInfo] = {}
         for name, size in cls._FONT_SIZES:
             font = ImageFont.truetype(BytesIO(font_data), size)
+            font.set_variation_by_axes([600 if name == "title" else 500 if name == "name" else 400])
             font_infos[f"{name}_font"] = FontInfo(
                 font=font,
                 line_height=get_font_height(font),
@@ -231,7 +233,7 @@ class Renderer:
     """统一的渲染器，将解析结果转换为消息"""
 
     # 卡片配置常量
-    PADDING = 25
+    PADDING = 36
     """内边距"""
     AVATAR_SIZE = 80
     """头像大小"""
@@ -245,7 +247,7 @@ class Renderer:
     """默认卡片宽度"""
     MIN_CARD_WIDTH = 400
     """最小卡片宽度"""
-    SECTION_SPACING = 15
+    SECTION_SPACING = 24
     """部分间距"""
     NAME_TIME_GAP = 5
     """名称和时间之间的间距"""
@@ -277,17 +279,17 @@ class Renderer:
     """转发缩放比例"""
 
     # 颜色配置
-    BG_COLOR: ClassVar[Color] = (255, 255, 255)
+    BG_COLOR: ClassVar[Color] = (255, 254, 253)
     """背景色"""
-    TEXT_COLOR: ClassVar[Color] = (51, 51, 51)
+    TEXT_COLOR: ClassVar[Color] = (55, 49, 61)
     """文本色"""
-    HEADER_COLOR: ClassVar[Color] = (0, 122, 255)
+    HEADER_COLOR: ClassVar[Color] = (112, 81, 128)
     """标题色"""
-    EXTRA_COLOR: ClassVar[Color] = (136, 136, 136)
+    EXTRA_COLOR: ClassVar[Color] = (117, 107, 121)
     """额外信息色"""
-    REPOST_BG_COLOR: ClassVar[Color] = (247, 247, 247)
+    REPOST_BG_COLOR: ClassVar[Color] = (242, 235, 244)
     """转发背景色"""
-    REPOST_BORDER_COLOR: ClassVar[Color] = (230, 230, 230)
+    REPOST_BORDER_COLOR: ClassVar[Color] = (233, 224, 233)
     """转发边框色"""
 
     # 资源名称
@@ -302,7 +304,7 @@ class Renderer:
     """资源目录"""
     LOGOS_DIR: ClassVar[Path] = RESOURCES_DIR / _LOGOS
     """各平台LOGO目录"""
-    DEFAULT_FONT_PATH: ClassVar[Path] = RESOURCES_DIR / _FONT_FILENAME
+    DEFAULT_FONT_PATH: ClassVar[Path] = FONT_PATH
     """默认字体路径"""
     DEFAULT_VIDEO_BUTTON_PATH: ClassVar[Path] = RESOURCES_DIR / _BUTTON_FILENAME
     """默认视频按钮路径"""
@@ -397,12 +399,12 @@ class Renderer:
 
         # 计算总高度
         card_height = sum(section.height for section in sections)
-        card_height += self.PADDING * 2 + self.SECTION_SPACING * (len(sections) - 1)
+        card_height += self.PADDING * 2 + self.SECTION_SPACING * max(0, len(sections) - 1)
 
         # 创建画布
-        bg_color = self.BG_COLOR if not_repost else self.REPOST_BG_COLOR
+        bg_color = (0, 0, 0, 0) if not_repost else self.REPOST_BG_COLOR
         image = Image.new(
-            "RGB",
+            "RGBA",
             (card_width, card_height),
             bg_color,
         )
@@ -419,6 +421,9 @@ class Renderer:
         )
         # 绘制各部分内容
         await self._draw_sections(ctx, sections)
+        if not_repost:
+            image = frame_card(image, result.platform.display_name,
+                               self.platform_logos.get(result.platform.name))
         return image
 
     async def render_card(self, result: ParseResult) -> Path | None:
@@ -907,8 +912,8 @@ class Renderer:
     def _create_avatar_placeholder(self) -> PILImage:
         """创建默认头像占位符"""
         # 头像占位符配置常量
-        placeholder_bg_color = (230, 230, 230, 255)
-        placeholder_fg_color = (200, 200, 200, 255)
+        placeholder_bg_color = (242, 235, 244, 255)
+        placeholder_fg_color = (181, 150, 195, 255)
         head_ratio = 0.35  # 头部位置比例
         head_radius_ratio = 1 / 6  # 头部半径比例
         shoulder_y_ratio = 0.55  # 肩部 Y 位置比例
@@ -1005,16 +1010,7 @@ class Renderer:
                 fill=self.EXTRA_COLOR,
             )
 
-        # 在右侧绘制平台 logo（仅在非转发内容时绘制）
-        if ctx.not_repost:
-            platform_name = ctx.result.platform.name
-            if platform_name in self.platform_logos:
-                logo_img = self.platform_logos[platform_name]
-                # 计算 logo 位置（右侧对齐）
-                logo_x = ctx.image.width - self.PADDING - logo_img.width
-                # 垂直居中对齐头像
-                logo_y = ctx.y_pos + (self.AVATAR_SIZE - logo_img.height) // 2
-                ctx.image.paste(logo_img, (logo_x, logo_y), logo_img)
+        # 平台标识统一放在卡片顶栏，为长昵称保留完整文字宽度。
 
         ctx.y_pos += section.height + self.SECTION_SPACING
 

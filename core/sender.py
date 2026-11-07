@@ -55,7 +55,7 @@ class MessageSender:
     - 只负责“怎么发”
     """
 
-    FORWARD_NODE_NAME = "解析器"
+    FORWARD_NODE_NAME = "小普 · 内容解析"
 
     def __init__(self, config: PluginConfig, renderer: Renderer):
         self.cfg = config
