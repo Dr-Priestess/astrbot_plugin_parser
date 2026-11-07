@@ -19,6 +19,7 @@ from .core.clean import CacheCleaner
 from .core.config import PluginConfig
 from .core.debounce import Debouncer
 from .core.download import Downloader
+from .core.exception import TipException
 from .core.parsers import BaseParser, BilibiliParser
 from .core.render import Renderer
 from .core.sender import MessageSender
@@ -220,7 +221,12 @@ class ParserPlugin(Star):
             return
 
         # 解析
-        parse_res = await self.parser_map[keyword].parse(keyword, searched)
+        try:
+            parse_res = await self.parser_map[keyword].parse(keyword, searched)
+        except TipException as exc:
+            logger.warning(f"[parser] {exc.message}")
+            await event.send(event.plain_result(exc.message))
+            return
 
         # 基于资源ID防抖
         resource_id = parse_res.get_resource_id()

@@ -9,6 +9,8 @@
 
 维护仓库：[Dr-Priestess/astrbot_plugin_parser](https://github.com/Dr-Priestess/astrbot_plugin_parser)。
 
+`main` 提供通用解析修复；[codex/prts](https://github.com/Dr-Priestess/astrbot_plugin_parser/tree/codex/prts) 是小普的长期使用分支，包含专属暖白星轨卡片和署名。小普在 AstrBot 中的更新源应使用该分支链接。
+
 _✨ 链接解析器 ✨_  
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)

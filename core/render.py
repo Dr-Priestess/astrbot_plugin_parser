@@ -551,8 +551,13 @@ class Renderer:
             sections.append(TitleSectionData(height=title_height, lines=title_lines))
 
         # 3. 封面，图集，图文内容
+        try:
+            cover_path = await result.cover_path
+        except Exception:
+            logger.debug("卡片封面不可用，继续渲染文字")
+            cover_path = None
         if cover_img := self._load_and_resize_cover(
-            await result.cover_path,
+            cover_path,
             content_width=content_width,
         ):
             sections.append(
@@ -663,9 +668,11 @@ class Renderer:
             return None
 
         # 加载头像
-        avatar_img = self._load_and_process_avatar(
-            await result.author.get_avatar_path()
-        )
+        try:
+            avatar_img = self._load_and_process_avatar(await result.author.get_avatar_path())
+        except Exception:
+            logger.debug("卡片头像不可用，使用占位头像")
+            avatar_img = None
 
         # 计算文字区域宽度（始终预留头像空间）
         text_area_width = content_width - (self.AVATAR_SIZE + self.AVATAR_TEXT_GAP)
@@ -741,7 +748,11 @@ class Renderer:
         img_count = len(img_contents)
 
         for img_content in img_contents:
-            img_path = await img_content.get_path()
+            try:
+                img_path = await img_content.get_path()
+            except Exception:
+                logger.debug("卡片图集中一张图片不可用，继续渲染其他内容")
+                continue
             # 使用装饰器保护的方法，失败会返回 None
             img = await self._load_and_process_grid_image(
                 img_path, content_width, img_count

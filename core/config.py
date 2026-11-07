@@ -228,6 +228,7 @@ class PluginConfig(ConfigNode):
     audio_to_file: bool
     single_heavy_render_card: bool
     forward_threshold: int
+    text_forward_threshold: int
 
     show_download_fail_tip: bool
     download_timeout: int
@@ -242,6 +243,7 @@ class PluginConfig(ConfigNode):
 
     _plugin_name = "astrbot_plugin_parser"
     def __init__(self, config: AstrBotConfig, context: Context):
+        config.setdefault("text_forward_threshold", 500)
         super().__init__(config)
         self.context = context
         self.admins_id = self.context.get_config().get("admins_id", [])

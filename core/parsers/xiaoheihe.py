@@ -6,14 +6,14 @@ import random
 import re
 import time
 from typing import Any, ClassVar
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from curl_cffi import requests as curl_requests
 
 from ..config import PluginConfig
 from ..data import MediaContent, Platform, SendGroup, TextContent, VideoContent
 from ..download import Downloader
-from ..exception import ParseException
+from ..exception import ParseException, TipException
 from .base import BaseParser, handle
 
 V4_EP = (
@@ -129,10 +129,15 @@ class XiaoheiheParser(BaseParser):
                 "accept": "application/json, text/plain, */*",
                 "referer": "https://www.xiaoheihe.cn/",
                 "origin": "https://www.xiaoheihe.cn",
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/131.0.0.0 Safari/537.36"
+                ),
             }
         )
-        if self.mycfg.cookies:
-            self.headers["cookie"] = self.mycfg.cookies
+        # 公共媒体请求沿用 self.headers，不携带小黑盒登录凭证。
+        # API 的 Cookie 在每次请求时从配置读取、合并并按域名附加。
 
     @handle(
         "xiaoheihe.cn/app/bbs/link",
@@ -328,15 +333,43 @@ class XiaoheiheParser(BaseParser):
         }
 
     def _extract_xhh_tokenid_from_cookies(self) -> str | None:
-        cookie_header = self.headers.get("cookie", "")
-        if not cookie_header:
-            return None
-        matched = re.search(r"(?:^|;\s*)x_xhh_tokenid=([^;]+)", cookie_header)
-        if matched:
-            return matched.group(1)
-        return None
+        return self._configured_cookies().get("x_xhh_tokenid")
+
+    def _configured_cookies(self) -> dict[str, str]:
+        raw = str(self.mycfg.cookies or "").strip()
+        raw = re.sub(r"^cookie\s*:\s*", "", raw, flags=re.IGNORECASE)
+        result = {}
+        for part in raw.replace("\r", "").replace("\n", ";").split(";"):
+            name, separator, value = part.strip().partition("=")
+            if separator and name.strip():
+                result[name.strip()] = value.strip()
+        return result
 
     @staticmethod
+    def _is_auth_url(url: str) -> bool:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        return parsed.scheme == "https" and (
+            host == "xiaoheihe.cn" or host.endswith(".xiaoheihe.cn")
+        )
+
+    def _request_headers(
+        self, url: str, headers: dict[str, str] | None = None,
+        cookies: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        merged = {
+            key: value for key, value in {**self.headers, **(headers or {})}.items()
+            if key.lower() != "cookie"
+        }
+        if self._is_auth_url(url):
+            values = self._configured_cookies()
+            values.update(cookies or {})
+            if values:
+                # 只发送一条完整 Cookie。curl_cffi 的 cookies 参数与手动请求头
+                # 同时使用会产生两条 Cookie，服务端可能只读取其中一条。
+                merged["Cookie"] = "; ".join(f"{key}={value}" for key, value in values.items())
+        return merged
+
     @staticmethod
     def _canonical_game_web_url(appid: str, game_type: str) -> str:
         return f"https://www.xiaoheihe.cn/app/topic/game/{game_type.strip().lower() or 'pc'}/{appid}"
@@ -1102,9 +1135,7 @@ class XiaoheiheParser(BaseParser):
         cookies: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
-        merged_headers = dict(self.headers)
-        if headers:
-            merged_headers.update(headers)
+        merged_headers = self._request_headers(url, headers, cookies)
 
         def do_request():
             return curl_requests.request(
@@ -1112,20 +1143,41 @@ class XiaoheiheParser(BaseParser):
                 url,
                 params=params,
                 json=json,
-                cookies=cookies,
                 headers=merged_headers,
                 impersonate="chrome131",
                 proxies={"https": self.proxy, "http": self.proxy}
                 if self.proxy
                 else None,
                 timeout=self.cfg.common_timeout,
+                allow_redirects=False,
             )
 
         response = await asyncio.to_thread(do_request)
+        self._check_http_status(response.status_code)
         try:
-            return response.json()
+            payload = response.json()
         except Exception as exc:
-            raise ParseException(f"小黑盒接口返回非 JSON: {url}") from exc
+            raise ParseException("小黑盒接口返回非 JSON，请检查网页访问和登录状态") from exc
+        if not isinstance(payload, dict):
+            raise ParseException("小黑盒接口返回格式异常")
+        if payload.get("status") == "show_captcha":
+            raise TipException(
+                "小黑盒要求验证，请先在浏览器打开原链接完成验证，"
+                "必要时更新插件的 Cookie 后再试。（show_captcha）"
+            )
+        return payload
+
+    @staticmethod
+    def _check_http_status(status: int) -> None:
+        if status in (401, 403):
+            raise TipException(
+                f"小黑盒拒绝访问（HTTP {status}），请先确认网页可以正常打开，"
+                "再更新插件的 Cookie。"
+            )
+        if status == 429:
+            raise TipException("小黑盒请求过于频繁，请稍后再试。（HTTP 429）")
+        if not 200 <= status < 300:
+            raise ParseException(f"小黑盒请求失败（HTTP {status}）")
 
     async def _request_text(
         self,
@@ -1134,22 +1186,19 @@ class XiaoheiheParser(BaseParser):
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> str:
-        merged_headers = dict(self.headers)
-        if headers:
-            merged_headers.update(headers)
-
-        def do_request():
-            return curl_requests.get(
-                url,
-                params=params,
-                headers=merged_headers,
+        # 逐跳重新判断 Cookie 域，避免原始 Cookie 请求头被带到外站。
+        for _ in range(6):
+            response = await asyncio.to_thread(
+                curl_requests.get, url, params=params,
+                headers=self._request_headers(url, headers),
                 impersonate="chrome131",
-                proxies={"https": self.proxy, "http": self.proxy}
-                if self.proxy
-                else None,
-                timeout=self.cfg.common_timeout,
-                allow_redirects=True,
+                proxies={"https": self.proxy, "http": self.proxy} if self.proxy else None,
+                timeout=self.cfg.common_timeout, allow_redirects=False,
             )
-
-        response = await asyncio.to_thread(do_request)
-        return str(response.text)
+            if response.status_code in (301, 302, 303, 307, 308) and response.headers.get("Location"):
+                url = urljoin(url, response.headers["Location"])
+                params = None
+                continue
+            self._check_http_status(response.status_code)
+            return str(response.text)
+        raise ParseException("小黑盒页面重定向次数过多，请检查网页访问和登录状态")

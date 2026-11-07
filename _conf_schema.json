@@ -85,6 +85,12 @@
         },
         "default": 2
     },
+    "text_forward_threshold": {
+        "description": "长文本转聊天记录字数",
+        "hint": "同一发送分组的文字超过此字数时，自动合并成聊天记录；保留全文，卡片仅展示摘要。500 字以内维持原发送方式，设为 0 可关闭。",
+        "type": "int",
+        "default": 500
+    },
     "show_download_fail_tip": {
         "description": "提示下载失败项",
         "hint": "关闭后将不再发送与下载失败相关的提示（如“此项媒体下载失败”、“超过文件大小限制”等）",
@@ -398,7 +404,7 @@
                     },
                     "cookies": {
                         "description": "Cookies",
-                        "hint": "选填",
+                        "hint": "选填：在浏览器登录小黑盒后复制完整 Cookie 请求头，填写 key=value; key=value 格式（可含 Cookie: 前缀）。出现 show_captcha 时先在网页完成验证，必要时重新复制；填写 Cookie 不保证免除平台验证。",
                         "type": "text",
                         "default": ""
                     },
